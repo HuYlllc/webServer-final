@@ -2,6 +2,20 @@ const express = require("express");
 const router = express.Router();
 const User = require('../models/User');
 const Content = require('../models/Content');
+const nodemailer = require('nodemailer');
+const smtpTransport = require('nodemailer-smtp-transport');
+
+const transport = nodemailer.createTransport(smtpTransport({
+    host: 'smtp.163.com', 
+    port: 25,
+    auth: {
+        user: 'hznulin@163.com',
+        pass: 'linyiduo123123'
+    }
+}));
+
+
+let captchaGenerated = "";
 
 var responseDate
 
@@ -13,11 +27,41 @@ router.use((req, res, next) => {
   next()
 })
 
+// 邮箱验证
+router.post("/user/captcha", (req, res, next) => {
+  let email = req.body.email
+  captchaGenerated = (1000 + Math.round(Math.random() * 10000 - 1000));
+
+  if (/^\w+((-\w+)|(\.\w+))*\@[A-Za-z0-9]+((\.|-)[A-Za-z0-9]+)*\.[A-Za-z0-9]+$/.test(email)) {
+    transport.sendMail({
+      from: 'hznulin@163.com',
+      to: email,
+      subject: 'Blog captcha',
+      html: '<p>' + captchaGenerated + '</p>'
+    }, function (error, data) {
+        if (error) {
+            console.error(error);
+        } else {
+            console.log('邮件发送成功');
+        }
+        transport.close();
+    });
+    console.log('发送的验证码：' + captchaGenerated);
+    res.send(captchaGenerated);
+  } else {
+    res.send('邮箱格式错误!');
+  }
+});
+
 // 用户注册
 router.post("/user/register", (req, res, next) => {
   let username = req.body.username
   let password = req.body.password
   let repassword = req.body.repassword
+  let captcha = req.body.captcha
+  let email = req.body.email
+
+  console.log(email);
 
   if (username == '' || password == '') {
     responseDate = {
@@ -35,6 +79,16 @@ router.post("/user/register", (req, res, next) => {
     res.json(responseDate)
     return
   }
+  console.log("输入的验证码：", captcha);
+  console.log("生成的验证码：", captchaGenerated);
+  if (captcha != captchaGenerated) {
+    responseDate = {
+      code: '005',
+      message: '验证码错误'
+    }
+    res.json(responseDate)
+    return
+  }
   // 查询数据库是否重名
   User.findOne({
     username: username
@@ -42,7 +96,7 @@ router.post("/user/register", (req, res, next) => {
     if (userInfo) {
       console.log(userInfo)
       responseDate = {
-        code: '003',
+        code: '004',
         message: '用户名已经被注册'
       }
       res.json(responseDate)
@@ -50,7 +104,8 @@ router.post("/user/register", (req, res, next) => {
     }
     var user = new User({
       username: username,
-      password: password
+      password: password,
+      email: email
     })
     return user.save()
   }).then((newUserInfo) => {
@@ -76,7 +131,7 @@ router.post("/user/login", (req, res, next) => {
   // 查询数据库是否重名
   User.findOne({
     username: username,
-    password: password
+    password: password,
   }).then((userInfo) => {
     if (!userInfo) {
        responseDate = {
@@ -92,12 +147,14 @@ router.post("/user/login", (req, res, next) => {
       message: '登录成功',
       userInfo: {
         _id: userInfo._id,
-        username: userInfo.username
+        username: userInfo.username,
+        email: userInfo.email
       }
     }
     req.cookies.set('userInfo', JSON.stringify({
       _id: userInfo._id,
-      username: userInfo.username
+      username: userInfo.username,
+      email: userInfo.email
     }))
     res.json(responseDate)
     return

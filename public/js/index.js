@@ -8,7 +8,7 @@ function blogAjax(url, data, fn) {
     data: data,
     dataType: "JSON",
     error: function(data) {
-      alert('加载异常，请稍后重试')
+      // alert('加载异常，请稍后重试')
     },
     success: function(res) {
      typeof fn === 'function' && fn(res)
@@ -19,10 +19,27 @@ function blogAjax(url, data, fn) {
 $('.go-register').on('click', function () {
   $('.login').hide()
   $('.register').show()
+  $('.login-box').css("height","450px");  
 })
 $('.go-login').on('click', function () {
   $('.register').hide()
   $('.login').show()
+  $('.login-box').css("height","275px");  
+})
+
+$(".send-captcha").on('click', function () {
+  var captcha = "/api/user/captcha"
+  var data = {
+    email: $(".register .email").val()
+  }
+  blogAjax(captcha, data, function (res) {
+    // 注册成功
+    if (res.code == '000') {
+      $('.register-tips').html(res.message)
+    } else {
+      $('.register-tips').html(res.message).css('color', 'red')
+    }
+  })
 })
 
 // 注册
@@ -31,7 +48,9 @@ $(".register-btn").on('click', function () {
   var data = {
     username: $(".register .username").val(),
     password: $(".register .password").val(),
-    repassword: $(".register .repassword").val()
+    repassword: $(".register .repassword").val(),
+    captcha: $(".register .captcha").val(),
+    email: $(".register .email").val()
   }
   blogAjax(register, data, function (res) {
     // 注册成功
@@ -39,6 +58,7 @@ $(".register-btn").on('click', function () {
       $('.register-tips').html(res.message)
       $('.register').hide()
       $('.login').show()
+      $('.login-box').css("height","275px");  
     } else {
       $('.register-tips').html(res.message).css('color', 'red')
     }
